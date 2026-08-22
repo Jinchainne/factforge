@@ -1,0 +1,8 @@
+{
+  "network": "GenLayer Bradbury Testnet",
+  "chainId": 4221,
+  "rpc": "https://rpc-bradbury.genlayer.com",
+  "contract": "0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40",
+  "deploymentTransaction": "0x6b89119cba2c735c8054a97acebb531023be70334df84fab0f0b07b7035a19c7",
+  "explorer": "https://explorer-bradbury.genlayer.com/address/0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40"
+}

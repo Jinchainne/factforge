@@ -53,7 +53,7 @@ Set `VITE_FACTFORGE_ADDRESS` to the deployed contract address before using the w
 genlayer deploy --contract contracts/fact_forge.py --rpc https://rpc-bradbury.genlayer.com
 ```
 
-Record the accepted contract and transaction in `deployments/bradbury.json` before publishing the repository.
+The current deployment is [`0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40`](https://explorer-bradbury.genlayer.com/address/0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40), with metadata in `deployments/bradbury.json`.
 
 ## Design references
 

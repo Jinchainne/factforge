@@ -13,3 +13,9 @@ Builder -> Intelligent Contracts
 ## Why it is reusable
 
 The same primitive supports public announcements, policy claims, sports/event outcomes, research assertions, due-diligence checks, and agent-to-agent fact disputes without trusting a single oracle or backend.
+
+## Bradbury deployment
+
+- Contract: `0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40`
+- Explorer: https://explorer-bradbury.genlayer.com/address/0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40
+- Deployment transaction: `0x6b89119cba2c735c8054a97acebb531023be70334df84fab0f0b07b7035a19c7`
