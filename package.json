@@ -1,0 +1,12 @@
+{
+  "name": "factforge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/submission-proof.test.mjs",
+    "verify": "node scripts/verify-contract.mjs",
+    "build:web": "npm --prefix frontend run build"
+  },
+  "dependencies": { "genlayer-js": "^1.1.8" }
+}
