@@ -259,6 +259,8 @@ Use undetermined when sources are unavailable, contradictory, or insufficient un
         challenge = self._get(challenge_id)
         if challenge.status != ChallengeStatus.EVIDENCE_SUBMITTED:
             raise gl.vm.UserError("Both parties must submit evidence before resolution")
+        if len(challenge.proposer_urls) == 0 or len(challenge.challenger_urls) == 0:
+            raise gl.vm.UserError("Both parties must submit at least one evidence URL")
         result = self._judge(challenge)
         challenge.reasoning = str(result.get("reasoning", "Insufficient evidence."))[:1800]
         self._settle(challenge, str(result.get("outcome", "undetermined")))

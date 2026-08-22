@@ -11,7 +11,7 @@ test("FactForge has source-backed consensus", () => {
 });
 
 test("FactForge has two-sided escrow and fail-closed settlement", () => {
-  for (const signal of ["@gl.public.write.payable", "def create_challenge", "def accept_challenge", "def submit_evidence", "def resolve_challenge", "def refund_unaccepted", "ChallengeStatus.UNDETERMINED", "proposer_stake = u256(0)", "challenger_stake = u256(0)", "emit_transfer"]) assert.ok(source.includes(signal), signal);
+  for (const signal of ["@gl.public.write.payable", "def create_challenge", "def accept_challenge", "def submit_evidence", "def resolve_challenge", "Both parties must submit at least one evidence URL", "def refund_unaccepted", "ChallengeStatus.UNDETERMINED", "proposer_stake = u256(0)", "challenger_stake = u256(0)", "emit_transfer"]) assert.ok(source.includes(signal), signal);
 });
 
 test("FactForge has real app-to-contract reads and writes", () => {
