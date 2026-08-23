@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { acceptChallenge, connectWallet, createChallenge, createSourceReport, listChallengeIds, listSourceReportIds, readChallenge, readSourceReport, resolveChallenge, submitEvidence, walletClient } from "./lib/genlayer";
 import "./source-lens.css";
 
@@ -16,6 +16,7 @@ export default function App() {
   const [account, setAccount] = useState<`0x${string}` | "">("");
   const [ids, setIds] = useState<number[]>([]);
   const [selected, setSelected] = useState<Challenge | null>(null);
+  const selectedId = useRef<number | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [challengeId, setChallengeId] = useState("1");
   const [message, setMessage] = useState("Syncing live challenge index...");
@@ -25,9 +26,9 @@ export default function App() {
   const [reportForm, setReportForm] = useState({ claim: "", url: "" });
   const [view, setView] = useState<"desk" | "cases" | "lens" | "inspector">("desk");
 
-  async function loadChallenge(id: number) { const next = toChallenge(await readChallenge(id)); setSelected(next); setChallengeId(String(id)); }
+  async function loadChallenge(id: number) { const next = toChallenge(await readChallenge(id)); selectedId.current = id; setSelected(next); setChallengeId(String(id)); }
   async function refresh() {
-    try { const raw = await listChallengeIds(); const next = (Array.isArray(raw) ? raw : []).map(Number).reverse(); setIds(next); if (!selected && next[0]) await loadChallenge(next[0]); const reportIds = await listSourceReportIds(); const latestReport = (Array.isArray(reportIds) ? reportIds : []).map(Number).pop(); if (latestReport) setReport(toReport(await readSourceReport(latestReport))); setMessage(next.length ? "Live state synced from GenLayer" : "No challenges indexed yet"); }
+    try { const raw = await listChallengeIds(); const next = (Array.isArray(raw) ? raw : []).map(Number).reverse(); setIds(next); const targetId = selectedId.current && next.includes(selectedId.current) ? selectedId.current : next[0]; if (targetId) await loadChallenge(targetId); const reportIds = await listSourceReportIds(); const latestReport = (Array.isArray(reportIds) ? reportIds : []).map(Number).pop(); if (latestReport) setReport(toReport(await readSourceReport(latestReport))); setMessage(next.length ? "Live state synced from GenLayer" : "No challenges indexed yet"); }
     catch (error) { setMessage(`Sync error: ${String(error)}`); }
   }
   useEffect(() => { refresh(); const timer = window.setInterval(refresh, 8000); return () => window.clearInterval(timer); }, []);
