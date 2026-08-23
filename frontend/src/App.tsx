@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { acceptChallenge, connectWallet, createChallenge, listChallengeIds, readChallenge, resolveChallenge, submitEvidence, walletClient } from "./lib/genlayer";
 
 type Challenge = { id: number; statement: string; resolution_rules: string; status: string; verdict: string; reasoning: string; deadline: number; proposer: string; challenger: string; proposer_stake: number; challenger_stake: number; proposer_urls: string[]; challenger_urls: string[] };
-const EMPTY = { statement: "", rules: "", position: true, deadline: 0, stake: "0.01", evidence: "" };
+const EMPTY = { statement: "", rules: "", position: true, deadline: 86400, stake: "0.01", evidence: "" };
 
 function toChallenge(value: any): Challenge { return { ...value, id: Number(value.id), deadline: Number(value.deadline), proposer_stake: Number(value.proposer_stake), challenger_stake: Number(value.challenger_stake), proposer_urls: value.proposer_urls || [], challenger_urls: value.challenger_urls || [] }; }
+function shortAddress(value: string) { return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "—"; }
+function formatStake(value: number) { return `${(value / 1e18).toFixed(3)} GEN`; }
+function label(value: string) { return value.replaceAll("_", " "); }
 
 export default function App() {
   const [account, setAccount] = useState<`0x${string}` | "">("");
@@ -12,46 +15,29 @@ export default function App() {
   const [selected, setSelected] = useState<Challenge | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [challengeId, setChallengeId] = useState("1");
-  const [message, setMessage] = useState("Loading live challenges...");
+  const [message, setMessage] = useState("Syncing live challenge index...");
+  const [busy, setBusy] = useState(false);
 
+  async function loadChallenge(id: number) { const next = toChallenge(await readChallenge(id)); setSelected(next); setChallengeId(String(id)); }
   async function refresh() {
-    try {
-      const raw = await listChallengeIds();
-      const next = (Array.isArray(raw) ? raw : []).map(Number).reverse();
-      setIds(next);
-      if (next[0]) setSelected(toChallenge(await readChallenge(next[0])));
-      setMessage(next.length ? "Live state synced from GenLayer." : "No challenges yet. Open the first one.");
-    } catch (error) { setMessage(String(error)); }
+    try { const raw = await listChallengeIds(); const next = (Array.isArray(raw) ? raw : []).map(Number).reverse(); setIds(next); if (!selected && next[0]) await loadChallenge(next[0]); setMessage(next.length ? "Live state synced from GenLayer" : "No challenges indexed yet"); }
+    catch (error) { setMessage(`Sync error: ${String(error)}`); }
   }
   useEffect(() => { refresh(); const timer = window.setInterval(refresh, 8000); return () => window.clearInterval(timer); }, []);
+  async function act(fn: () => Promise<unknown>, success: string) { try { setBusy(true); setMessage("Transaction submitted · waiting for consensus"); await fn(); setMessage(success); await refresh(); if (Number(challengeId)) await loadChallenge(Number(challengeId)); } catch (error) { setMessage(String(error)); } finally { setBusy(false); } }
+  async function create() { if (!account) return setMessage("Connect a wallet to open a challenge"); await act(() => createChallenge(walletClient(account), form.statement, form.rules, form.position, Math.floor(Date.now() / 1000) + Number(form.deadline || 86400), BigInt(Math.round(Number(form.stake) * 1e18))), "Challenge opened on-chain"); }
+  async function accept() { if (!account) return setMessage("Connect a wallet to accept a challenge"); await act(() => acceptChallenge(walletClient(account), Number(challengeId), BigInt(Math.round(Number(form.stake) * 1e18))), "Opposite position accepted"); }
+  async function evidence() { if (!account) return setMessage("Connect a wallet to submit evidence"); const urls = form.evidence.split("\n").map((item) => item.trim()).filter(Boolean); await act(() => submitEvidence(walletClient(account), Number(challengeId), urls), "Evidence submitted to the case"); }
+  async function resolve() { if (!account) return setMessage("Connect a wallet to resolve a challenge"); await act(() => resolveChallenge(walletClient(account), Number(challengeId)), "Consensus verdict written on-chain"); }
 
-  async function act(fn: () => Promise<unknown>, success: string) {
-    try { setMessage("Transaction submitted. Waiting for consensus..."); await fn(); setMessage(success); await refresh(); } catch (error) { setMessage(String(error)); }
-  }
-  async function create() {
-    if (!account) return setMessage("Connect a wallet first.");
-    const client = walletClient(account);
-    await act(() => createChallenge(client, form.statement, form.rules, form.position, Math.floor(Date.now() / 1000) + Number(form.deadline || 86400), BigInt(Math.round(Number(form.stake) * 1e18))), "Challenge opened on-chain.");
-  }
-  async function accept() {
-    if (!account) return setMessage("Connect a wallet first.");
-    await act(() => acceptChallenge(walletClient(account), Number(challengeId), BigInt(Math.round(Number(form.stake) * 1e18))), "Challenge accepted.");
-  }
-  async function evidence() {
-    if (!account) return setMessage("Connect a wallet first.");
-    const urls = form.evidence.split("\n").map((item) => item.trim()).filter(Boolean);
-    await act(() => submitEvidence(walletClient(account), Number(challengeId), urls), "Evidence submitted.");
-  }
-  async function resolve() {
-    if (!account) return setMessage("Connect a wallet first.");
-    await act(() => resolveChallenge(walletClient(account), Number(challengeId)), "Consensus resolved the challenge.");
-  }
-
-  return <main>
-    <nav><span className="mark">FF</span><span className="brand">FactForge</span><span className="nav-note">source-backed challenges</span><button onClick={async () => setAccount(await connectWallet())}>{account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "Connect wallet"}</button></nav>
-    <section className="hero"><div><p className="eyebrow">GENLAYER / PUBLIC CLAIMS</p><h1>Make the source<br /><em>settle the claim.</em></h1><p className="lede">Two positions. Public evidence. One validator-backed verdict. FactForge turns arguable public questions into inspectable, stake-backed challenges.</p></div><div className="signal"><span className="pulse" />{message}<small>Bradbury testnet · live contract reads</small></div></section>
-    <section className="grid"><div className="panel compose"><div className="panel-head"><span>01 / Open a challenge</span><span className="tag">PAYABLE</span></div><label>Public statement<textarea value={form.statement} onChange={(e) => setForm({ ...form, statement: e.target.value })} placeholder="Example: The city published its 2026 flood-relief budget before June 30." /></label><label>Resolution rules<textarea value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="Define what counts as decisive evidence and when the claim is settled." /></label><div className="row"><label>Position<select value={String(form.position)} onChange={(e) => setForm({ ...form, position: e.target.value === "true" })}><option value="true">Claim is true</option><option value="false">Claim is false</option></select></label><label>Stake (GEN)<input value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} /></label></div><label>Evidence URLs <span className="muted">optional now, required from both sides</span><textarea value={form.evidence} onChange={(e) => setForm({ ...form, evidence: e.target.value })} placeholder="https://source-one.example/report" /></label><button className="primary" onClick={create}>Open with stake ↗</button></div>
-      <div className="panel operate"><div className="panel-head"><span>02 / Operate the case</span><span className="tag dark">CONSENSUS</span></div><label>Challenge ID<input value={challengeId} onChange={(e) => setChallengeId(e.target.value)} /></label><div className="actions"><button onClick={accept}>Accept opposite position</button><button onClick={evidence}>Submit evidence</button><button className="primary" onClick={resolve}>Resolve with validators</button></div>{selected && <article className="case"><div className="case-top"><span>Challenge #{selected.id}</span><strong>{selected.status.replaceAll("_", " ")}</strong></div><h2>{selected.statement}</h2><p>{selected.resolution_rules}</p><div className="facts"><span>Proposer stake <b>{selected.proposer_stake} wei</b></span><span>Challenger stake <b>{selected.challenger_stake} wei</b></span></div>{selected.verdict && <div className="verdict"><span>VERDICT</span><b>{selected.verdict.replaceAll("_", " ")}</b><p>{selected.reasoning}</p></div>}</article>}</div></section>
-    <section className="footer-grid"><div><span className="eyebrow">HOW IT HOLDS</span><h2>Fail closed, never silently.</h2><p>Validators independently fetch both parties' sources. If their outcome differs, or evidence is unavailable, the contract settles as <b>undetermined</b> and returns each original stake.</p></div><div className="ledger"><span>LIVE CHALLENGE INDEX</span>{ids.length ? ids.slice(0, 5).map((id) => <button key={id} onClick={async () => setSelected(toChallenge(await readChallenge(id)))}>#{id} <small>inspect ↗</small></button>) : <p>No indexed cases yet.</p>}</div></section>
+  const resolvedCount = selected && ["proposer_won", "challenger_won", "undetermined"].includes(selected.verdict) ? 1 : 0;
+  return <main className="app-shell">
+    <header className="topbar"><div className="brand-lockup"><span className="brand-mark">FF</span><span><b>FactForge</b><small>claim intelligence desk</small></span></div><nav><a className="active" href="#desk">Desk</a><a href="#cases">Cases</a><a href="#method">Method</a></nav><div className="top-actions"><span className="network"><i /> Bradbury / 4221</span><button className="wallet" onClick={async () => setAccount(await connectWallet())}>{account ? shortAddress(account) : "Connect wallet"}</button></div></header>
+    <section className="dashboard-head" id="desk"><div><p className="kicker">GENLAYER / PUBLIC CLAIMS / 08:42 UTC</p><h1>Claims worth<br /><em>checking.</em></h1><p className="head-copy">A live workspace for public questions that need more than an opinion. Build the case, bring the sources, let independent validators settle it.</p></div><div className="head-signal"><span className="live-dot" /><b>{message}</b><small>Auto-refresh every 8 seconds · contract reads only</small></div></section>
+    <section className="metric-strip"><div><span>Indexed challenges</span><strong>{String(ids.length).padStart(2, "0")}</strong><small>on Bradbury</small></div><div><span>Selected case</span><strong>{selected ? `#${selected.id}` : "—"}</strong><small>{selected ? label(selected.status) : "none loaded"}</small></div><div><span>Consensus mode</span><strong>2×</strong><small>independent reads</small></div><div><span>Resolved here</span><strong>{String(resolvedCount).padStart(2, "0")}</strong><small>fail-closed by design</small></div></section>
+    <section className="desk-grid" id="cases"><div className="feed-column"><div className="section-heading"><div><p className="kicker">01 / LIVE INDEX</p><h2>Challenge feed</h2></div><span className="source-pill"><i /> on-chain</span></div><div className="case-list">{ids.length ? ids.slice(0, 8).map((id, index) => <button className={`case-row ${selected?.id === id ? "selected" : ""}`} key={id} onClick={() => loadChallenge(id)}><span className="case-index">{String(index + 1).padStart(2, "0")}</span><span className="case-summary"><b>Challenge #{id}</b><small>{selected?.id === id ? selected.statement : "Select to inspect live state"}</small></span><span className="row-arrow">↗</span></button>) : <div className="empty-state"><strong>No public challenges yet</strong><span>Open the first claim from the composer.</span></div>}</div><div className="method-card" id="method"><div className="method-icon">◎</div><div><p className="kicker">WHY THIS HOLDS</p><h3>Evidence in. Verdict out.</h3><p>Validators independently fetch both parties' sources. A disagreement or unavailable source becomes <b>undetermined</b> and returns both stakes.</p></div></div></div>
+      <aside className="composer-card"><div className="section-heading"><div><p className="kicker">02 / COMPOSE</p><h2>Open a challenge</h2></div><span className="soft-label">PAYABLE</span></div><label>Public statement<textarea value={form.statement} onChange={(e) => setForm({ ...form, statement: e.target.value })} placeholder="The city published its 2026 flood-relief budget before June 30." /></label><label>Resolution rules<textarea value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="What counts as decisive evidence? When is the claim settled?" /></label><div className="field-row"><label>Position<select value={String(form.position)} onChange={(e) => setForm({ ...form, position: e.target.value === "true" })}><option value="true">Claim is true</option><option value="false">Claim is false</option></select></label><label>Stake <span className="unit">GEN</span><input value={form.stake} onChange={(e) => setForm({ ...form, stake: e.target.value })} /></label></div><label>Evidence URLs <span className="field-note">one URL per line · add after opening too</span><textarea value={form.evidence} onChange={(e) => setForm({ ...form, evidence: e.target.value })} placeholder="https://source.example/report" /></label><button className="action-button" disabled={busy} onClick={create}>{busy ? "Waiting for consensus..." : "Open with stake"}<span>↗</span></button></aside></section>
+    <section className="inspector"><div className="inspector-top"><div><p className="kicker">03 / INSPECTOR</p><h2>Operate the case</h2></div><label className="case-id">CASE ID<input value={challengeId} onChange={(e) => setChallengeId(e.target.value)} /></label></div><div className="inspector-grid"><div className="case-detail">{selected ? <><div className="detail-meta"><span>Challenge #{selected.id}</span><strong className={`status status-${selected.status}`}>{label(selected.status)}</strong></div><h3>{selected.statement}</h3><p>{selected.resolution_rules}</p><div className="party-grid"><div><span>PROPOSER</span><b>{shortAddress(selected.proposer)}</b><small>{formatStake(selected.proposer_stake)}</small></div><div><span>CHALLENGER</span><b>{shortAddress(selected.challenger)}</b><small>{formatStake(selected.challenger_stake)}</small></div><div><span>SOURCES</span><b>{selected.proposer_urls.length + selected.challenger_urls.length}</b><small>submitted URLs</small></div></div>{selected.verdict && <div className="verdict-box"><span>CONSENSUS VERDICT</span><b>{label(selected.verdict)}</b><p>{selected.reasoning}</p></div>}</> : <div className="empty-state"><strong>Select a challenge</strong><span>Choose a case from the live index to inspect it.</span></div>}</div><div className="action-rail"><p className="kicker">CASE ACTIONS</p><button onClick={accept}>Accept opposite position <span>↗</span></button><button onClick={evidence}>Submit evidence <span>↗</span></button><button className="resolve-button" onClick={resolve}>Resolve with validators <span>◎</span></button><small>{message}</small></div></div></section>
+    <footer><span>FACTFORGE / SOURCE-BACKED CHALLENGES</span><span>Bradbury testnet · contract reads live</span><a href="https://explorer-bradbury.genlayer.com/address/0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40" target="_blank" rel="noreferrer">Explorer ↗</a></footer>
   </main>;
 }
