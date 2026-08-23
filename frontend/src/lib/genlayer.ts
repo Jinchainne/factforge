@@ -3,7 +3,7 @@ import { testnetBradbury } from "genlayer-js/chains";
 
 export const RPC_URL = "https://rpc-bradbury.genlayer.com";
 export const EXPLORER_URL = "https://explorer-bradbury.genlayer.com";
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_FACTFORGE_ADDRESS as string) || "0xd044FC2D01b6dEBA4dF8CD3bdF83C00aE0523D40";
+export const CONTRACT_ADDRESS = (import.meta.env.VITE_FACTFORGE_ADDRESS as string) || "0xc74e8310892Ea651b903eB0b8d86e8698A2e023e";
 
 function address(value: string) {
   if (!/^0x[a-fA-F0-9]{40}$/.test(value)) throw new Error("Set a valid VITE_FACTFORGE_ADDRESS");
@@ -51,10 +51,23 @@ export async function resolveChallenge(client: any, id: number) {
   return confirmed(client, hash);
 }
 
+export async function createSourceReport(client: any, claim: string, sourceUrl: string) {
+  const hash = await client.writeContract({ address: address(CONTRACT_ADDRESS), functionName: "create_source_report", args: [claim, sourceUrl] });
+  return confirmed(client, hash);
+}
+
 export async function readChallenge(id: number) {
   return readClient().readContract({ address: address(CONTRACT_ADDRESS), functionName: "get_challenge", args: [id] });
 }
 
 export async function listChallengeIds() {
   return readClient().readContract({ address: address(CONTRACT_ADDRESS), functionName: "list_challenge_ids", args: [] });
+}
+
+export async function readSourceReport(id: number) {
+  return readClient().readContract({ address: address(CONTRACT_ADDRESS), functionName: "get_source_report", args: [id] });
+}
+
+export async function listSourceReportIds() {
+  return readClient().readContract({ address: address(CONTRACT_ADDRESS), functionName: "list_source_report_ids", args: [] });
 }
