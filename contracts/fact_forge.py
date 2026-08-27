@@ -9,6 +9,7 @@ import re
 
 MAX_URLS_PER_SIDE = 6
 MAX_FETCH_CHARS = 18000
+EVIDENCE_BUDGET_PER_SIDE = MAX_FETCH_CHARS // 2
 MIN_TEXT = 16
 
 
@@ -108,8 +109,10 @@ class FactForge(gl.Contract):
     def _packet(self, challenge: ClaimChallenge) -> str:
         packet = []
         sources = [("PROPOSER", challenge.proposer_urls), ("CHALLENGER", challenge.challenger_urls)]
-        remaining = MAX_FETCH_CHARS
         for label, urls in sources:
+            # Budgets are intentionally not shared: unused proposer capacity can
+            # never consume or expand the challenger's reserved context.
+            remaining = EVIDENCE_BUDGET_PER_SIDE
             for url in urls:
                 if remaining <= 0:
                     break

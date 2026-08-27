@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/submission-proof.test.mjs",
+    "test": "node --test tests/submission-proof.test.mjs && python -m unittest discover -s tests -p \"test_*.py\"",
     "verify": "node scripts/verify-contract.mjs",
     "build:web": "npm --prefix frontend run build"
   },

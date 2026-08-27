@@ -17,9 +17,16 @@ The decision depends on interpreting natural-language rules against live web evi
 1. Proposer calls `create_challenge` with a statement, resolution rules, position, future deadline, and payable GEN stake.
 2. Challenger calls `accept_challenge` with the opposite position and a payable stake.
 3. Both parties call `submit_evidence` with 1-6 public HTTPS URLs.
-4. Anyone calls `resolve_challenge`; consensus settles the pot to the winning side.
-5. Conflicting or unavailable evidence produces `undetermined` and returns each original stake.
-6. If nobody accepts, the proposer can call `refund_unaccepted` after the deadline.
+4. The contract builds a balanced packet with a non-transferable 9,000-character evidence budget reserved for each side.
+5. Anyone calls `resolve_challenge`; consensus settles the pot to the winning side.
+6. Conflicting or unavailable evidence produces `undetermined` and returns each original stake.
+7. If nobody accepts, the proposer can call `refund_unaccepted` after the deadline.
+
+## Balanced evidence budget
+
+Stake settlement never uses a first-come, shared evidence buffer. `MAX_FETCH_CHARS` is split into two independent `EVIDENCE_BUDGET_PER_SIDE` quotas. Oversized proposer pages are truncated only inside the proposer quota and cannot reduce the challenger's reserved context. Unused capacity is not transferred between sides.
+
+The behavioral regression test in `tests/test_evidence_budget.py` executes the contract's `_packet()` method with a 20,000-character proposer page and a 12,000-character challenger page. It asserts that both sides retain exactly 9,000 evidence characters and that the challenger source remains present.
 
 ## Repository structure
 
@@ -28,7 +35,7 @@ contracts/fact_forge.py       GenLayer Intelligent Contract
 frontend/                     React + Vite live chain application
 app/factforge-workflow.ts     reusable genlayer-js workflow
 deployments/                  network metadata
-tests/                        contract and integration-shape checks
+tests/                        contract checks and balanced-budget behavior test
 submission-pack/              reviewer handoff notes
 ```
 
@@ -55,7 +62,7 @@ Set `VITE_FACTFORGE_ADDRESS` to the deployed contract address before using the w
 genlayer deploy --contract contracts/fact_forge.py --rpc https://rpc-bradbury.genlayer.com
 ```
 
-The current deployment is [`0xc74e8310892Ea651b903eB0b8d86e8698A2e023e`](https://explorer-bradbury.genlayer.com/address/0xc74e8310892Ea651b903eB0b8d86e8698A2e023e), with metadata in `deployments/bradbury.json`.
+The current deployment is [`0xE28C9a732450C14e74F624D8901A88f2903e484F`](https://explorer-bradbury.genlayer.com/address/0xE28C9a732450C14e74F624D8901A88f2903e484F), with metadata in `deployments/bradbury.json`.
 
 ## Design references
 

@@ -3,7 +3,7 @@ import { testnetBradbury } from "genlayer-js/chains";
 
 export const RPC_URL = "https://rpc-bradbury.genlayer.com";
 export const EXPLORER_URL = "https://explorer-bradbury.genlayer.com";
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_FACTFORGE_ADDRESS as string) || "0xc74e8310892Ea651b903eB0b8d86e8698A2e023e";
+export const CONTRACT_ADDRESS = (import.meta.env.VITE_FACTFORGE_ADDRESS as string) || "0xE28C9a732450C14e74F624D8901A88f2903e484F";
 
 function address(value: string) {
   if (!/^0x[a-fA-F0-9]{40}$/.test(value)) throw new Error("Set a valid VITE_FACTFORGE_ADDRESS");
