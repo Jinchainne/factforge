@@ -11,6 +11,7 @@ MAX_URLS_PER_SIDE = 6
 MAX_FETCH_CHARS = 18000
 EVIDENCE_BUDGET_PER_SIDE = MAX_FETCH_CHARS // 2
 MIN_TEXT = 16
+VALID_OUTCOMES = ("proposer_won", "challenger_won", "undetermined")
 
 
 class ChallengeStatus:
@@ -155,7 +156,7 @@ Use undetermined when sources are unavailable, contradictory, or insufficient un
             if not isinstance(raw, dict):
                 raise gl.vm.UserError("Invalid adjudication result")
             outcome = str(raw.get("outcome", "undetermined")).strip().lower()
-            if outcome not in ("proposer_won", "challenger_won", "undetermined"):
+            if outcome not in VALID_OUTCOMES:
                 outcome = "undetermined"
             reasoning = str(raw.get("reasoning", "Insufficient evidence."))[:1800]
             return {"outcome": outcome, "reasoning": reasoning}
@@ -283,8 +284,8 @@ Return strict JSON only:
             raise gl.vm.UserError("Proposer cannot challenge their own claim")
         if self._now() > challenge.deadline:
             raise gl.vm.UserError("Challenge deadline has passed")
-        if gl.message.value <= 0:
-            raise gl.vm.UserError("Positive challenger stake required")
+        if gl.message.value != challenge.proposer_stake:
+            raise gl.vm.UserError("Challenger stake must exactly match proposer stake")
         challenge.challenger = gl.message.sender_address
         challenge.challenger_stake = gl.message.value
         challenge.status = ChallengeStatus.ACCEPTED
@@ -322,6 +323,8 @@ Return strict JSON only:
             raise gl.vm.UserError("Both parties must submit evidence before resolution")
         if len(challenge.proposer_urls) == 0 or len(challenge.challenger_urls) == 0:
             raise gl.vm.UserError("Both parties must submit at least one evidence URL")
+        if self._now() <= challenge.deadline:
+            raise gl.vm.UserError("Evidence window is still open")
         result = self._judge(challenge)
         challenge.reasoning = str(result.get("reasoning", "Insufficient evidence."))[:1800]
         self._settle(challenge, str(result.get("outcome", "undetermined")))
@@ -376,6 +379,22 @@ Return strict JSON only:
         self._settle(challenge, "undetermined")
         challenge.status = ChallengeStatus.REFUNDED
         challenge.verdict = "unaccepted_refund"
+        self._save(challenge)
+
+    @gl.public.write
+    def refund_incomplete(self, challenge_id: int) -> None:
+        challenge = self._get(challenge_id)
+        if challenge.status not in (ChallengeStatus.ACCEPTED, ChallengeStatus.EVIDENCE_SUBMITTED):
+            raise gl.vm.UserError("Challenge is not awaiting evidence")
+        if self._now() <= challenge.deadline:
+            raise gl.vm.UserError("Evidence window is still open")
+        if gl.message.sender_address not in (challenge.proposer, challenge.challenger):
+            raise gl.vm.UserError("Only challenge parties may trigger an incomplete refund")
+        if len(challenge.proposer_urls) > 0 and len(challenge.challenger_urls) > 0:
+            raise gl.vm.UserError("Complete evidence must be resolved, not refunded")
+        self._settle(challenge, "undetermined")
+        challenge.status = ChallengeStatus.REFUNDED
+        challenge.verdict = "incomplete_evidence_refund"
         self._save(challenge)
 
     @gl.public.view

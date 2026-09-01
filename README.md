@@ -15,12 +15,21 @@ The decision depends on interpreting natural-language rules against live web evi
 ## Lifecycle
 
 1. Proposer calls `create_challenge` with a statement, resolution rules, position, future deadline, and payable GEN stake.
-2. Challenger calls `accept_challenge` with the opposite position and a payable stake.
+2. Challenger calls `accept_challenge` with the opposite position and exactly matches the proposer's payable stake.
 3. Both parties call `submit_evidence` with 1-6 public HTTPS URLs.
 4. The contract builds a balanced packet with a non-transferable 9,000-character evidence budget reserved for each side.
-5. Anyone calls `resolve_challenge`; consensus settles the pot to the winning side.
+5. After the evidence deadline, anyone calls `resolve_challenge`; consensus settles the symmetric pot to the winning side.
 6. Conflicting or unavailable evidence produces `undetermined` and returns each original stake.
-7. If nobody accepts, the proposer can call `refund_unaccepted` after the deadline.
+7. If nobody accepts, the proposer can call `refund_unaccepted` after the deadline. If an accepted case is missing either party's evidence, either party can call `refund_incomplete` and recover both original stakes.
+
+## Symmetric wager invariant
+
+The proposer defines the wager size and `accept_challenge` accepts only the exact same
+amount from the challenger. A winner therefore receives a two-equal-stake pot; neither
+side can risk a dust amount to capture a larger opposing stake. Resolution cannot run
+before the evidence deadline, preventing either party from cutting off the other's
+submission window. Accepted cases cannot lock funds indefinitely: incomplete evidence
+after the deadline triggers a two-sided refund.
 
 ## Balanced evidence budget
 
@@ -62,7 +71,7 @@ Set `VITE_FACTFORGE_ADDRESS` to the deployed contract address before using the w
 genlayer deploy --contract contracts/fact_forge.py --rpc https://rpc-bradbury.genlayer.com
 ```
 
-The current deployment is [`0xE28C9a732450C14e74F624D8901A88f2903e484F`](https://explorer-bradbury.genlayer.com/address/0xE28C9a732450C14e74F624D8901A88f2903e484F), with metadata in `deployments/bradbury.json`.
+The current deployment is [`0x866fb1b20Ef82195Dee024117AC2C1bDAF03A9e5`](https://explorer-bradbury.genlayer.com/address/0x866fb1b20Ef82195Dee024117AC2C1bDAF03A9e5), with metadata in `deployments/bradbury.json`. Deployment transaction: [`0xd41970...27ea1b`](https://explorer-bradbury.genlayer.com/tx/0xd41970f3e40117ce7f02c825e1b1279b6e0fe99451a22328d0d57dbf5727ea1b).
 
 ## Design references
 

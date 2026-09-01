@@ -2,7 +2,10 @@
   "network": "GenLayer Bradbury Testnet",
   "chainId": 4221,
   "rpc": "https://rpc-bradbury.genlayer.com",
-  "contract": "0xE28C9a732450C14e74F624D8901A88f2903e484F",
-  "deploymentTransaction": "0xad519d512b1369de08cf18eb8e1772de7250f89b54bb3213f3a42c95cab617de",
-  "explorer": "https://explorer-bradbury.genlayer.com/address/0xE28C9a732450C14e74F624D8901A88f2903e484F"
+  "contract": "0x866fb1b20Ef82195Dee024117AC2C1bDAF03A9e5",
+  "deploymentTransaction": "0xd41970f3e40117ce7f02c825e1b1279b6e0fe99451a22328d0d57dbf5727ea1b",
+  "consensus": "AGREE",
+  "status": "ACCEPTED",
+  "deployedAt": "2026-09-01",
+  "explorer": "https://explorer-bradbury.genlayer.com/address/0x866fb1b20Ef82195Dee024117AC2C1bDAF03A9e5"
 }

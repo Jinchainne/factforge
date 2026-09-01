@@ -92,5 +92,98 @@ class EvidenceBudgetBehaviorTest(unittest.TestCase):
         self.assertIn(f"CHALLENGER SOURCE {challenger_url}", packet)
 
 
+class WagerLifecycleBehaviorTest(unittest.TestCase):
+    def setUp(self):
+        self.contract_module = _load_contract()
+        self.contract = object.__new__(self.contract_module.FactForge)
+        self.contract.challenges = {}
+
+    def challenge(self, **overrides):
+        values = {
+            "id": 1,
+            "proposer": "0x" + "1" * 40,
+            "challenger": "0x" + "2" * 40,
+            "proposer_stake": 100,
+            "challenger_stake": 0,
+            "status": self.contract_module.ChallengeStatus.OPEN,
+            "settled": False,
+            "verdict": "",
+            "reasoning": "",
+            "deadline": 200,
+            "proposer_urls": [],
+            "challenger_urls": [],
+        }
+        values.update(overrides)
+        return types.SimpleNamespace(**values)
+
+    def test_challenger_must_match_proposer_stake_exactly(self):
+        challenge = self.challenge()
+        self.contract.challenges[1] = challenge
+        self.contract._now = lambda: 100
+        self.contract_module.gl.message.sender_address = challenge.challenger
+        self.contract_module.gl.message.value = 1
+
+        with self.assertRaisesRegex(RuntimeError, "exactly match"):
+            self.contract.accept_challenge(1)
+
+        self.contract_module.gl.message.value = 100
+        self.contract.accept_challenge(1)
+        self.assertEqual(challenge.challenger_stake, 100)
+        self.assertEqual(challenge.status, self.contract_module.ChallengeStatus.ACCEPTED)
+
+    def test_challenger_win_receives_symmetric_two_stake_pot(self):
+        challenge = self.challenge(challenger_stake=100)
+        self.contract.challenges[1] = challenge
+        transfers = []
+        self.contract._transfer = lambda recipient, amount: transfers.append((recipient, amount))
+
+        self.contract._settle(challenge, "challenger_won")
+
+        self.assertEqual(transfers, [(challenge.challenger, 200)])
+        self.assertEqual(challenge.status, self.contract_module.ChallengeStatus.CHALLENGER_WON)
+        self.assertEqual(challenge.proposer_stake, 0)
+        self.assertEqual(challenge.challenger_stake, 0)
+
+    def test_resolution_cannot_cut_off_the_evidence_window(self):
+        challenge = self.challenge(
+            status=self.contract_module.ChallengeStatus.EVIDENCE_SUBMITTED,
+            challenger_stake=100,
+            proposer_urls=["https://proposer.example/evidence"],
+            challenger_urls=["https://challenger.example/evidence"],
+        )
+        self.contract.challenges[1] = challenge
+        self.contract._now = lambda: challenge.deadline
+
+        with self.assertRaisesRegex(RuntimeError, "Evidence window is still open"):
+            self.contract.resolve_challenge(1)
+
+    def test_incomplete_evidence_refunds_both_stakes_after_deadline(self):
+        challenge = self.challenge(
+            status=self.contract_module.ChallengeStatus.EVIDENCE_SUBMITTED,
+            challenger_stake=100,
+            proposer_urls=["https://proposer.example/evidence"],
+        )
+        self.contract.challenges[1] = challenge
+        self.contract._now = lambda: challenge.deadline + 1
+        self.contract_module.gl.message.sender_address = challenge.proposer
+        transfers = []
+        self.contract._transfer = lambda recipient, amount: transfers.append((recipient, amount))
+
+        self.contract.refund_incomplete(1)
+
+        self.assertEqual(transfers, [(challenge.proposer, 100), (challenge.challenger, 100)])
+        self.assertEqual(challenge.status, self.contract_module.ChallengeStatus.REFUNDED)
+        self.assertEqual(challenge.verdict, "incomplete_evidence_refund")
+
+    def test_prompt_and_parser_share_the_exact_challenger_outcome(self):
+        source = CONTRACT_PATH.read_text(encoding="utf-8")
+        self.assertNotIn("ohallenger_won", source)
+        self.assertIn('"challenger_won"', source)
+        self.assertEqual(
+            self.contract_module.VALID_OUTCOMES,
+            ("proposer_won", "challenger_won", "undetermined"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
