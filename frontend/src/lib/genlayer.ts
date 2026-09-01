@@ -103,6 +103,15 @@ export async function refundIncomplete(client: any, id: number) {
   return confirmed(client, hash);
 }
 
+export async function refundUnaccepted(client: any, id: number) {
+  const hash = await client.writeContract({
+    address: address(CONTRACT_ADDRESS),
+    functionName: "refund_unaccepted",
+    args: [id],
+  });
+  return confirmed(client, hash);
+}
+
 export async function createSourceReport(
   client: any,
   claim: string,

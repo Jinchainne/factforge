@@ -1,0 +1,5 @@
+# More Information Response
+
+Implemented the complete `refund_unaccepted` application path. The frontend client now submits `refund_unaccepted(challenge_id)` and waits for an `ACCEPTED` receipt with full transaction data. The Inspector action rail exposes an expired-unaccepted refund action that is enabled only when the selected case is still `open`, its deadline has passed, and the connected wallet is the proposer. After acceptance, the shared transaction workflow refreshes the challenge index and re-reads the selected challenge from the contract, displaying the authoritative refunded state.
+
+Added a Vitest regression using a fake GenLayer client to verify the exact write call and accepted-receipt options. Added application assertions covering the UI eligibility checks and post-receipt refresh/readback path. All Node, Vitest, Python, contract verification, GenVM validation, and production build checks pass. No contract redeployment was required because the accepted Bradbury contract already exposes `refund_unaccepted`.

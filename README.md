@@ -22,6 +22,8 @@ The decision depends on interpreting natural-language rules against live web evi
 6. Conflicting or unavailable evidence produces `undetermined` and returns each original stake.
 7. If nobody accepts, the proposer can call `refund_unaccepted` after the deadline. If an accepted case is missing either party's evidence, either party can call `refund_incomplete` and recover both original stakes.
 
+The frontend exposes both refund paths. For an expired `open` challenge, the action rail enables **Refund expired unaccepted case** only for the connected proposer wallet. The client submits `refund_unaccepted`, waits for an `ACCEPTED` receipt, refreshes the challenge index, and re-reads the selected case from the contract before presenting the updated state.
+
 ## Symmetric wager invariant
 
 The proposer defines the wager size and `accept_challenge` accepts only the exact same
@@ -36,6 +38,8 @@ after the deadline triggers a two-sided refund.
 Stake settlement never uses a first-come, shared evidence buffer. `MAX_FETCH_CHARS` is split into two independent `EVIDENCE_BUDGET_PER_SIDE` quotas. Oversized proposer pages are truncated only inside the proposer quota and cannot reduce the challenger's reserved context. Unused capacity is not transferred between sides.
 
 The behavioral regression test in `tests/test_evidence_budget.py` executes the contract's `_packet()` method with a 20,000-character proposer page and a 12,000-character challenger page. It asserts that both sides retain exactly 9,000 evidence characters and that the challenger source remains present.
+
+`frontend/src/lib/genlayer.test.ts` exercises the unaccepted-refund client with a fake GenLayer client and verifies the exact method, challenge ID, and accepted-receipt options. The application regression test also verifies that the UI checks expiry, `open` status, selected case, and proposer ownership before routing the transaction through the post-receipt refresh and readback path.
 
 ## Repository structure
 

@@ -9,6 +9,7 @@ import {
   readChallenge,
   readSourceReport,
   refundIncomplete,
+  refundUnaccepted,
   resolveChallenge,
   submitEvidence,
   walletClient,
@@ -191,6 +192,22 @@ export default function App() {
       "Incomplete challenge refunded to both parties",
     );
   }
+  async function refundExpiredUnaccepted() {
+    if (!account) return setMessage("Connect the proposer wallet to request a refund");
+    if (!selected || selected.id !== Number(challengeId)) {
+      return setMessage("Load the selected challenge before requesting its refund");
+    }
+    if (selected.status !== "open" || Math.floor(Date.now() / 1000) <= selected.deadline) {
+      return setMessage("Only an expired challenge that was never accepted can use this refund");
+    }
+    if (selected.proposer.toLowerCase() !== account.toLowerCase()) {
+      return setMessage("Only the challenge proposer can recover this stake");
+    }
+    await act(
+      () => refundUnaccepted(walletClient(account), selected.id),
+      "Expired unaccepted challenge refunded to the proposer",
+    );
+  }
   async function runSourceLens() {
     if (!account) return setMessage("Connect a wallet to run Source Lens");
     try {
@@ -221,6 +238,14 @@ export default function App() {
     )
       ? 1
       : 0;
+  const canRefundUnaccepted = Boolean(
+    account &&
+      selected &&
+      selected.id === Number(challengeId) &&
+      selected.status === "open" &&
+      Math.floor(Date.now() / 1000) > selected.deadline &&
+      selected.proposer.toLowerCase() === account.toLowerCase(),
+  );
   return (
     <main className={`app-shell view-${view}`}>
       <header className="topbar">
@@ -571,8 +596,21 @@ export default function App() {
             <button onClick={refundMissingEvidence}>
               Refund incomplete case <span>↗</span>
             </button>
+            <button
+              className="refund-unaccepted-button"
+              disabled={busy || !canRefundUnaccepted}
+              onClick={refundExpiredUnaccepted}
+              title={
+                canRefundUnaccepted
+                  ? "Recover the proposer's stake"
+                  : "Requires an expired open case and its proposer wallet"
+              }
+            >
+              Refund expired unaccepted case <span>↗</span>
+            </button>
             <small>
-              Resolution and incomplete refunds unlock after the evidence deadline.
+              Proposers can recover expired open cases that nobody accepted. Resolution
+              and incomplete refunds unlock after the evidence deadline.
             </small>
             <small>{message}</small>
           </div>

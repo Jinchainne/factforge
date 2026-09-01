@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 const source = readFileSync("contracts/fact_forge.py", "utf8");
 const app = readFileSync("app/factforge-workflow.ts", "utf8");
 const web = readFileSync("frontend/src/lib/genlayer.ts", "utf8");
+const ui = readFileSync("frontend/src/App.tsx", "utf8");
 const layout = readFileSync("frontend/src/source-lens.css", "utf8");
 
 test("FactForge has source-backed consensus", () => {
@@ -17,9 +18,15 @@ test("FactForge has symmetric escrow and recoverable fail-closed settlement", ()
 });
 
 test("FactForge has real app-to-contract reads and writes", () => {
-  for (const signal of ["readContract", "writeContract", "waitForTransactionReceipt", "connectWallet", "createSourceReport", "readSourceReport", "refundIncomplete"]) assert.ok(web.includes(signal), signal);
+  for (const signal of ["readContract", "writeContract", "waitForTransactionReceipt", "connectWallet", "createSourceReport", "readSourceReport", "refundIncomplete", "refundUnaccepted", 'functionName: "refund_unaccepted"']) assert.ok(web.includes(signal), signal);
   for (const signal of ["writeContract", "waitForTransactionReceipt", "policyBoundToExecution"]) assert.ok(app.includes(signal), signal);
   for (const path of ["README.md", "SECURITY.md", "frontend/src/App.tsx", "deploy/001_deploy_fact_forge.mjs", "submission-pack/SUBMISSION-DESCRIPTION.md"]) assert.equal(existsSync(path), true, path);
+});
+
+test("expired unaccepted refunds are exposed through the accepted-receipt UI path", () => {
+  for (const signal of ["refundExpiredUnaccepted", "refundUnaccepted(walletClient(account), selected.id)", 'selected.status === "open"', "selected.deadline", "selected.proposer.toLowerCase()", "await refresh()", "await loadChallenge(Number(challengeId))"]) {
+    assert.ok(ui.includes(signal), signal);
+  }
 });
 
 test("Desktop layout keeps document scrolling enabled", () => {
